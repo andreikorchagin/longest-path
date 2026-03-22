@@ -5,6 +5,7 @@ import Map, { type MapMouseEvent } from "react-map-gl/mapbox";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { useStore } from "@/store";
 import WaypointMarkers from "./WaypointMarkers";
+import RouteLayer from "./RouteLayer";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN!;
 
@@ -41,6 +42,7 @@ export default function MapContainer() {
       style={{ width: "100%", height: "100%" }}
       cursor={placingMarker ? "crosshair" : "grab"}
     >
+      <RouteLayer />
       <WaypointMarkers />
     </Map>
   );
