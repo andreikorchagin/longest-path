@@ -1,11 +1,16 @@
 import type { LngLat } from "@/types/geo";
 import type { PathGeometry } from "./overpass-query";
 import type { ScoredWaypoint } from "./types";
-import { haversineDistance, projectOntoLine } from "@/lib/geo/distance";
+import {
+  haversineDistance,
+  projectOntoLine,
+  bearing,
+  angleBetween,
+} from "@/lib/geo/distance";
 
-const SAMPLE_INTERVAL_M = 400; // Sample every 400m along paths
-const MIN_PATH_LENGTH_M = 100; // Ignore very short paths
-const WATER_PROXIMITY_M = 300; // A path is "waterfront" if within 300m of water
+const SAMPLE_INTERVAL_M = 400;
+const MIN_PATH_LENGTH_M = 100;
+const WATER_PROXIMITY_M = 300;
 
 /**
  * Calculate the total length of a path in meters.
@@ -40,9 +45,7 @@ function sampleAlongPath(coords: LngLat[], intervalM: number): LngLat[] {
   // Always include the last point
   const last = coords[coords.length - 1];
   const lastSample = samples[samples.length - 1];
-  if (
-    haversineDistance(last, lastSample) > intervalM * 0.3
-  ) {
+  if (haversineDistance(last, lastSample) > intervalM * 0.3) {
     samples.push(last);
   }
 
@@ -52,10 +55,7 @@ function sampleAlongPath(coords: LngLat[], intervalM: number): LngLat[] {
 /**
  * Check if a point is near any water feature.
  */
-function isNearWater(
-  point: LngLat,
-  waterPaths: PathGeometry[]
-): boolean {
+function isNearWater(point: LngLat, waterPaths: PathGeometry[]): boolean {
   for (const wp of waterPaths) {
     for (const coord of wp.coordinates) {
       if (haversineDistance(point, coord) < WATER_PROXIMITY_M) {
@@ -67,47 +67,86 @@ function isNearWater(
 }
 
 /**
- * Score a path based on its properties and water proximity.
+ * Check if a path is roughly aligned with the travel direction.
+ * Returns true if the path runs within 60 degrees of the travel bearing.
+ * Perpendicular inland paths (like cross streets) return false.
+ */
+function isAlignedWithTravel(
+  path: PathGeometry,
+  travelBearing: number
+): boolean {
+  if (path.coordinates.length < 2) return true;
+  const first = path.coordinates[0];
+  const last = path.coordinates[path.coordinates.length - 1];
+  const pathBearing = bearing(first, last);
+
+  // Check both directions (a path from A to B has bearing X, B to A has X+180)
+  const angle1 = angleBetween(pathBearing, travelBearing);
+  const angle2 = angleBetween((pathBearing + 180) % 360, travelBearing);
+
+  return Math.min(angle1, angle2) < 60;
+}
+
+/**
+ * Score a path based on its properties and context.
+ *
+ * Scoring philosophy: strongly prefer paths that would make a runner
+ * choose them naturally — waterfront, parks, named trails, car-free.
+ * Generic unnamed inland footways score very low to prevent zigzagging.
  */
 function scorePath(
   path: PathGeometry,
-  waterPaths: PathGeometry[]
+  waterPaths: PathGeometry[],
+  travelBearing: number
 ): number {
   let score = 0;
 
   // Base scores by type
   switch (path.type) {
     case "pier":
-      score = 95; // Always interesting
+      score = 95;
       break;
     case "running_path":
-      score = 40; // Base for any running path
+      score = 15; // LOW base — unnamed inland footways shouldn't win
       break;
     case "park":
-      score = 30;
+      score = 40;
       break;
     case "waterfront":
-      score = 0; // These ARE water features, not paths to run on
+      score = 0; // Water features, not runnable paths
       break;
   }
 
-  // Bonus for named paths (usually major running infrastructure)
-  if (path.name) {
-    score += 25;
+  // Named paths are significant running infrastructure
+  if (path.name && path.type === "running_path") {
+    score += 35;
   }
 
-  // Bonus for paths near water
+  // Near water = major bonus (this is the primary signal)
   if (path.type === "running_path" || path.type === "pier") {
     const midIdx = Math.floor(path.coordinates.length / 2);
     const midpoint = path.coordinates[midIdx];
     if (isNearWater(midpoint, waterPaths)) {
-      score += 30; // Big bonus for waterfront running paths
+      score += 40;
     }
   }
 
-  // Bonus for longer continuous paths (more likely to be real infrastructure)
+  // Alignment with travel direction — penalize perpendicular inland paths
+  if (
+    path.type === "running_path" &&
+    !isNearWater(
+      path.coordinates[Math.floor(path.coordinates.length / 2)],
+      waterPaths
+    )
+  ) {
+    if (!isAlignedWithTravel(path, travelBearing)) {
+      score -= 20; // Perpendicular inland path = likely a cross-street footway
+    }
+  }
+
+  // Longer continuous paths are more likely to be real infrastructure
   const len = pathLength(path.coordinates);
-  if (len > 500) score += 10;
+  if (len > 500) score += 5;
   if (len > 1000) score += 10;
 
   return score;
@@ -117,9 +156,8 @@ function scorePath(
  * Main function: convert path geometries into scored waypoints
  * by sampling along the highest-scoring paths.
  *
- * This is the core difference from the old algorithm: waypoints
- * are sampled FROM path geometries (producing continuous routes)
- * instead of being isolated feature centroids (which zigzag).
+ * Waypoints are sampled FROM path geometries (producing continuous routes)
+ * instead of being isolated feature centroids (which cause zigzagging).
  */
 export function sampleWaypointsFromPaths(
   paths: PathGeometry[],
@@ -127,21 +165,26 @@ export function sampleWaypointsFromPaths(
   end: LngLat,
   maxWaypoints: number = 20
 ): ScoredWaypoint[] {
-  // Separate water features from runnable paths
   const waterPaths = paths.filter((p) => p.type === "waterfront");
   const runnablePaths = paths.filter((p) => p.type !== "waterfront");
+  const travelBearing = bearing(start, end);
 
   // Score and sort runnable paths
   const scoredPaths = runnablePaths
     .filter((p) => pathLength(p.coordinates) >= MIN_PATH_LENGTH_M)
-    .map((p) => ({ path: p, score: scorePath(p, waterPaths) }))
+    .map((p) => ({
+      path: p,
+      score: scorePath(p, waterPaths, travelBearing),
+    }))
     .sort((a, b) => b.score - a.score);
 
-  // Collect sampled waypoints from top paths
+  // Minimum score threshold: only quality paths make it
+  const MIN_SCORE = 45;
+
   const allWaypoints: ScoredWaypoint[] = [];
 
   for (const { path, score } of scoredPaths) {
-    if (score < 30) continue; // Skip low-value paths
+    if (score < MIN_SCORE) continue;
 
     if (path.type === "pier") {
       // For piers: just use the tip (endpoint farthest from start)
@@ -177,31 +220,25 @@ export function sampleWaypointsFromPaths(
     }
   }
 
-  // Filter: only keep waypoints that are within the corridor
-  // (between start and end along the travel axis, with some margin)
+  // Filter: only keep waypoints within the corridor
   const filtered = allWaypoints.filter((wp) => {
     const proj = projectOntoLine(wp.lngLat, start, end);
-    // Allow some overshoot for piers
     const margin = wp.isDeadEnd ? 0.3 : 0.1;
     return proj >= -margin && proj <= 1 + margin;
   });
 
-  // Deduplicate: remove points too close to each other, keeping higher-scored ones
+  // Deduplicate: remove points too close to each other
   const deduped = deduplicateWaypoints(filtered, 150);
 
-  // Don't include waypoints too close to start or end
+  // Remove waypoints too close to start or end
   const cleaned = deduped.filter(
     (wp) =>
       haversineDistance(wp.lngLat, start) > 100 &&
       haversineDistance(wp.lngLat, end) > 100
   );
 
-  // Take top N by score, then re-sort by projection for ordering
-  const topN = cleaned
-    .sort((a, b) => b.score - a.score)
-    .slice(0, maxWaypoints);
-
-  return topN;
+  // Take top N by score
+  return cleaned.sort((a, b) => b.score - a.score).slice(0, maxWaypoints);
 }
 
 /**
@@ -212,7 +249,6 @@ function deduplicateWaypoints(
   waypoints: ScoredWaypoint[],
   minDistM: number
 ): ScoredWaypoint[] {
-  // Sort by score descending so we keep higher-scored ones
   const sorted = [...waypoints].sort((a, b) => b.score - a.score);
   const result: ScoredWaypoint[] = [];
 

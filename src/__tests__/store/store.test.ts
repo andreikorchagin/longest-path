@@ -19,6 +19,7 @@ describe("Zustand store", () => {
       mode: "point-to-point",
       targetDistanceKm: 5,
       units: "mi",
+      paceMinPerMile: 9,
     });
   });
 

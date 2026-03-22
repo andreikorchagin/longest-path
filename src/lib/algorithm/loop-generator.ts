@@ -23,6 +23,7 @@ import {
 export async function generateLoopRoute(
   start: LngLat,
   targetDistanceKm: number,
+  paceMinPerMile: number = 9,
   onProgress?: ProgressCallback
 ): Promise<PipelineResult> {
   const targetDistanceM = targetDistanceKm * 1000;
@@ -95,6 +96,7 @@ export async function generateLoopRoute(
 
     const mapboxRoute = data.routes[0];
     const actualDistanceKm = mapboxRoute.distance / 1000;
+    const actualDistanceMi = actualDistanceKm * 0.621371;
 
     const route: Route = {
       geometry: {
@@ -104,8 +106,8 @@ export async function generateLoopRoute(
       },
       stats: {
         distanceKm: actualDistanceKm,
-        distanceMi: actualDistanceKm * 0.621371,
-        durationMin: mapboxRoute.duration / 60,
+        distanceMi: actualDistanceMi,
+        durationMin: actualDistanceMi * paceMinPerMile,
       },
     };
 

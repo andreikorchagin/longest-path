@@ -33,7 +33,7 @@ export const createRouteSlice: StateCreator<StoreState, [], [], RouteSlice> = (
   error: null,
 
   generateRoute: async () => {
-    const { startPoint, endPoint, mode, targetDistanceKm } = get();
+    const { startPoint, endPoint, mode, targetDistanceKm, paceMinPerMile } = get();
 
     if (!startPoint) {
       set({ error: "Set a start point" });
@@ -54,8 +54,8 @@ export const createRouteSlice: StateCreator<StoreState, [], [], RouteSlice> = (
     try {
       const result =
         mode === "loop"
-          ? await generateLoopRoute(startPoint, targetDistanceKm, onProgress)
-          : await generatePointToPointRoute(startPoint, endPoint!, onProgress);
+          ? await generateLoopRoute(startPoint, targetDistanceKm, paceMinPerMile, onProgress)
+          : await generatePointToPointRoute(startPoint, endPoint!, paceMinPerMile, onProgress);
 
       set({
         routeGeoJSON: result.route.geometry,

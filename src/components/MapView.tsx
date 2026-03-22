@@ -6,6 +6,7 @@ import RouteStats from "./RouteStats";
 import ModeSelector from "./ModeSelector";
 import DistanceSlider from "./DistanceSlider";
 import ProgressIndicator from "./ProgressIndicator";
+import PaceInput from "./PaceInput";
 import { useGeolocation } from "@/hooks/useGeolocation";
 
 const MapContainer = dynamic(() => import("./MapContainer"), {
@@ -124,6 +125,10 @@ export default function MapView() {
             </div>
 
             {mode === "loop" && <DistanceSlider />}
+
+            <div className="flex items-center justify-between">
+              <PaceInput />
+            </div>
           </div>
 
           {/* Route stats */}

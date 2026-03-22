@@ -27,6 +27,7 @@ export interface PipelineResult {
 export async function generatePointToPointRoute(
   start: LngLat,
   end: LngLat,
+  paceMinPerMile: number = 9,
   onProgress?: ProgressCallback
 ): Promise<PipelineResult> {
   // Step 1: Create corridor
@@ -70,6 +71,9 @@ export async function generatePointToPointRoute(
   const mapboxRoute = data.routes[0];
   const distanceKm = mapboxRoute.distance / 1000;
 
+  const distanceMi = distanceKm * 0.621371;
+  const durationMin = distanceMi * paceMinPerMile;
+
   const route: Route = {
     geometry: {
       type: "Feature",
@@ -78,8 +82,8 @@ export async function generatePointToPointRoute(
     },
     stats: {
       distanceKm,
-      distanceMi: distanceKm * 0.621371,
-      durationMin: mapboxRoute.duration / 60,
+      distanceMi,
+      durationMin,
     },
   };
 
