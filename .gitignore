@@ -39,8 +39,8 @@ playwright-report/
 test-results/
 .playwright-mcp/
 
-# screenshots (generated during dev)
-docs/screenshots/
+# screenshots (temp, not for README)
+docs/screenshots/temp/
 
 # vercel
 .vercel
