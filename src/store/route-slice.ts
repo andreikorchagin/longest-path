@@ -3,7 +3,7 @@ import type { RouteStats } from "@/types/route";
 import type { ScoredWaypoint } from "@/lib/algorithm/types";
 import type { StoreState } from "./index";
 import { generatePointToPointRoute } from "@/lib/algorithm/route-pipeline";
-import { getDirections } from "@/lib/api/mapbox-directions";
+import { generateLoopRoute } from "@/lib/algorithm/loop-generator";
 
 export interface RouteSlice {
   routeGeoJSON: GeoJSON.Feature<GeoJSON.LineString> | null;
@@ -29,9 +29,14 @@ export const createRouteSlice: StateCreator<StoreState, [], [], RouteSlice> = (
   error: null,
 
   generateRoute: async () => {
-    const { startPoint, endPoint } = get();
+    const { startPoint, endPoint, mode, targetDistanceKm } = get();
 
-    if (!startPoint || !endPoint) {
+    if (!startPoint) {
+      set({ error: "Set a start point" });
+      return;
+    }
+
+    if (mode === "point-to-point" && !endPoint) {
       set({ error: "Set both start and end points" });
       return;
     }
@@ -39,7 +44,10 @@ export const createRouteSlice: StateCreator<StoreState, [], [], RouteSlice> = (
     set({ isGenerating: true, error: null });
 
     try {
-      const result = await generatePointToPointRoute(startPoint, endPoint);
+      const result =
+        mode === "loop"
+          ? await generateLoopRoute(startPoint, targetDistanceKm)
+          : await generatePointToPointRoute(startPoint, endPoint!);
 
       set({
         routeGeoJSON: result.route.geometry,
