@@ -5,6 +5,7 @@ import { useStore } from "@/store";
 import RouteStats from "./RouteStats";
 import ModeSelector from "./ModeSelector";
 import DistanceSlider from "./DistanceSlider";
+import { useGeolocation } from "@/hooks/useGeolocation";
 
 const MapContainer = dynamic(() => import("./MapContainer"), {
   ssr: false,
@@ -23,11 +24,16 @@ export default function MapView() {
   const routeStats = useStore((s) => s.routeStats);
   const error = useStore((s) => s.error);
   const mode = useStore((s) => s.mode);
+  const units = useStore((s) => s.units);
   const setPlacingMarker = useStore((s) => s.setPlacingMarker);
   const setStartPoint = useStore((s) => s.setStartPoint);
   const setEndPoint = useStore((s) => s.setEndPoint);
+  const setViewState = useStore((s) => s.setViewState);
   const generateRoute = useStore((s) => s.generateRoute);
   const clearRoute = useStore((s) => s.clearRoute);
+  const setUnits = useStore((s) => s.setUnits);
+
+  const { loading: geoLoading, getCurrentPosition } = useGeolocation();
 
   const handleReset = () => {
     setStartPoint(null);
@@ -36,10 +42,23 @@ export default function MapView() {
     clearRoute();
   };
 
+  const handleUseMyLocation = async () => {
+    try {
+      const pos = await getCurrentPosition();
+      setStartPoint(pos);
+      setViewState({ longitude: pos[0], latitude: pos[1], zoom: 15 });
+      if (mode === "point-to-point") {
+        setPlacingMarker("end");
+      } else {
+        setPlacingMarker(null);
+      }
+    } catch {
+      // Error is in the hook state
+    }
+  };
+
   const canGenerate =
-    startPoint &&
-    (mode === "loop" || endPoint) &&
-    !isGenerating;
+    startPoint && (mode === "loop" || endPoint) && !isGenerating;
 
   const instructionText = () => {
     if (placingMarker === "start") return "Tap to set start point";
@@ -60,20 +79,37 @@ export default function MapView() {
       )}
 
       {/* Top-right controls */}
-      {(startPoint || endPoint) && (
-        <div className="absolute top-4 right-4 z-10">
+      <div className="absolute top-4 right-4 z-10 flex gap-2">
+        {!startPoint && (
+          <button
+            onClick={handleUseMyLocation}
+            disabled={geoLoading}
+            className="bg-white/90 backdrop-blur-sm rounded-full px-4 py-2 shadow-lg text-sm font-medium text-zinc-700 hover:bg-white transition-colors"
+          >
+            {geoLoading ? "Locating..." : "Use my location"}
+          </button>
+        )}
+        {(startPoint || endPoint) && (
           <button
             onClick={handleReset}
             className="bg-white/90 backdrop-blur-sm rounded-full px-4 py-2 shadow-lg text-sm font-medium text-zinc-700 hover:bg-white transition-colors"
           >
             Reset
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Bottom panel */}
       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl px-5 py-4 min-w-[300px] max-w-[90vw] space-y-3">
-        <ModeSelector />
+        <div className="flex items-center justify-between gap-3">
+          <ModeSelector />
+          <button
+            onClick={() => setUnits(units === "mi" ? "km" : "mi")}
+            className="text-xs text-zinc-400 hover:text-zinc-600 font-medium px-2 py-1 rounded transition-colors"
+          >
+            {units === "mi" ? "mi" : "km"}
+          </button>
+        </div>
 
         {mode === "loop" && <DistanceSlider />}
 
