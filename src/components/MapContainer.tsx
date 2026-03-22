@@ -6,7 +6,6 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import { useStore } from "@/store";
 import WaypointMarkers from "./WaypointMarkers";
 import RouteLayer from "./RouteLayer";
-import FeatureMarkers from "./FeatureMarkers";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN!;
 
@@ -17,7 +16,6 @@ export default function MapContainer() {
   const setStartPoint = useStore((s) => s.setStartPoint);
   const setEndPoint = useStore((s) => s.setEndPoint);
   const setPlacingMarker = useStore((s) => s.setPlacingMarker);
-  const selectedWaypoints = useStore((s) => s.selectedWaypoints);
   const mode = useStore((s) => s.mode);
 
   const handleClick = useCallback(
@@ -45,14 +43,11 @@ export default function MapContainer() {
       onMove={(e) => setViewState(e.viewState)}
       onClick={handleClick}
       mapboxAccessToken={MAPBOX_TOKEN}
-      mapStyle="mapbox://styles/mapbox/outdoors-v12"
+      mapStyle="mapbox://styles/mapbox/light-v11"
       style={{ width: "100%", height: "100%" }}
       cursor={placingMarker ? "crosshair" : "grab"}
     >
       <RouteLayer />
-      {selectedWaypoints.length > 0 && (
-        <FeatureMarkers waypoints={selectedWaypoints} />
-      )}
       <WaypointMarkers />
     </Map>
   );

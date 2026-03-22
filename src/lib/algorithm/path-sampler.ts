@@ -258,12 +258,13 @@ export function sampleWaypointsFromPaths(
   const piers = selectBestPiers(pierPaths, start, end, MAX_PIERS);
   waypoints.push(...piers);
 
-  // Deduplicate any waypoints too close to each other
+  // Deduplicate — use larger radius to prevent close waypoints
+  // that cause micro-detours
   const deduped: ScoredWaypoint[] = [];
   const sorted = [...waypoints].sort((a, b) => b.score - a.score);
   for (const wp of sorted) {
     const tooClose = deduped.some(
-      (existing) => haversineDistance(existing.lngLat, wp.lngLat) < 200
+      (existing) => haversineDistance(existing.lngLat, wp.lngLat) < 300
     );
     if (!tooClose) {
       deduped.push(wp);

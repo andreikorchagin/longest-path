@@ -1,34 +1,53 @@
 import { useStore } from "@/store";
 
-const STEP_LABELS: Record<string, string> = {
-  discovering: "Searching for running paths",
-  analyzing: "Analyzing path network",
-  selecting: "Selecting best route",
-  routing: "Calculating route",
-};
+const STEPS = [
+  { key: "discovering", label: "Finding running paths", detail: "Querying OpenStreetMap for footways, cycleways, and waterfront paths in the area" },
+  { key: "analyzing", label: "Analyzing paths", detail: "Scoring paths by length, water proximity, and alignment with your route" },
+  { key: "selecting", label: "Selecting route", detail: "Picking the best continuous path with minimal turns" },
+  { key: "routing", label: "Calculating route", detail: "Sending waypoints to Mapbox for turn-by-turn directions" },
+];
 
 export default function ProgressIndicator() {
   const step = useStore((s) => s.progressStep);
-  const detail = useStore((s) => s.progressDetail);
 
-  const label = step && step in STEP_LABELS ? STEP_LABELS[step] : "Preparing...";
+  const currentIdx = STEPS.findIndex((s) => s.key === step);
+  const current = currentIdx >= 0 ? STEPS[currentIdx] : null;
 
   return (
     <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
       <div
         role="status"
         aria-live="polite"
-        aria-label={label}
-        className="bg-white/95 backdrop-blur-md rounded-2xl px-6 py-5 shadow-xl shadow-black/10 border border-zinc-200/50 text-center pointer-events-auto min-w-[240px]"
+        aria-label={current?.label || "Preparing..."}
+        className="bg-white/95 backdrop-blur-md rounded-3xl px-8 py-7 shadow-xl shadow-black/10 border border-zinc-200/50 pointer-events-auto w-[340px]"
       >
-        <div
-          className="w-8 h-8 border-2 border-zinc-300 border-t-zinc-700 rounded-full animate-spin mx-auto mb-3"
-          aria-hidden="true"
-        />
-        <p className="text-sm font-medium text-zinc-800">{label}</p>
-        {detail && (
-          <p className="text-xs text-zinc-500 mt-1">{detail}</p>
-        )}
+        {/* Step indicators */}
+        <div className="flex gap-2 mb-5">
+          {STEPS.map((s, i) => (
+            <div
+              key={s.key}
+              className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${
+                i <= currentIdx ? "bg-blue-500" : "bg-zinc-200"
+              }`}
+            />
+          ))}
+        </div>
+
+        {/* Current step */}
+        <div className="flex items-start gap-4">
+          <div
+            className="w-6 h-6 border-2 border-zinc-300 border-t-blue-500 rounded-full animate-spin flex-shrink-0 mt-0.5"
+            aria-hidden="true"
+          />
+          <div>
+            <p className="text-base font-semibold text-zinc-800">
+              {current?.label || "Preparing..."}
+            </p>
+            <p className="text-sm text-zinc-500 mt-1 leading-relaxed">
+              {current?.detail || "Setting up route generation..."}
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
