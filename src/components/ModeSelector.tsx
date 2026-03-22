@@ -23,23 +23,27 @@ export default function ModeSelector() {
   };
 
   return (
-    <div className="flex rounded-lg bg-zinc-100 p-0.5">
+    <div role="group" aria-label="Route mode" className="flex rounded-lg bg-zinc-100 p-0.5">
       <button
         onClick={() => handleModeChange("point-to-point")}
-        className={`flex-1 rounded-md px-3.5 py-1.5 text-xs font-semibold transition-all ${
+        aria-pressed={mode === "point-to-point"}
+        aria-label="Point to point route"
+        className={`flex-1 rounded-md px-3.5 py-2.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 ${
           mode === "point-to-point"
             ? "bg-white text-zinc-900 shadow-sm"
-            : "text-zinc-400 hover:text-zinc-600"
+            : "text-zinc-500 hover:text-zinc-700"
         }`}
       >
         A to B
       </button>
       <button
         onClick={() => handleModeChange("loop")}
-        className={`flex-1 rounded-md px-3.5 py-1.5 text-xs font-semibold transition-all ${
+        aria-pressed={mode === "loop"}
+        aria-label="Loop route back to start"
+        className={`flex-1 rounded-md px-3.5 py-2.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 ${
           mode === "loop"
             ? "bg-white text-zinc-900 shadow-sm"
-            : "text-zinc-400 hover:text-zinc-600"
+            : "text-zinc-500 hover:text-zinc-700"
         }`}
       >
         Loop

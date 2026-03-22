@@ -6,8 +6,6 @@ interface Props {
 }
 
 export default function FeatureMarkers({ waypoints }: Props) {
-  // Only show pier waypoints — they're the interesting detours
-  // Regular path waypoints don't need markers (the route line shows them)
   const piers = waypoints.filter((wp) => wp.isDeadEnd);
 
   return (
@@ -20,8 +18,9 @@ export default function FeatureMarkers({ waypoints }: Props) {
           anchor="center"
         >
           <div
-            className="w-3 h-3 rounded-full bg-sky-400 border-2 border-white shadow-md"
-            title={wp.name || "Pier"}
+            role="img"
+            aria-label={wp.name || "Pier waypoint"}
+            className="w-3.5 h-3.5 rounded-full bg-sky-400 border-2 border-white shadow-md"
           />
         </Marker>
       ))}

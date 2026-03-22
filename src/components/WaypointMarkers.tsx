@@ -1,9 +1,27 @@
+import { useCallback } from "react";
 import { Marker } from "react-map-gl/mapbox";
 import { useStore } from "@/store";
+import type { MarkerDragEvent } from "react-map-gl/mapbox";
 
 export default function WaypointMarkers() {
   const startPoint = useStore((s) => s.startPoint);
   const endPoint = useStore((s) => s.endPoint);
+  const setStartPoint = useStore((s) => s.setStartPoint);
+  const setEndPoint = useStore((s) => s.setEndPoint);
+
+  const handleStartDragEnd = useCallback(
+    (e: MarkerDragEvent) => {
+      setStartPoint([e.lngLat.lng, e.lngLat.lat]);
+    },
+    [setStartPoint]
+  );
+
+  const handleEndDragEnd = useCallback(
+    (e: MarkerDragEvent) => {
+      setEndPoint([e.lngLat.lng, e.lngLat.lat]);
+    },
+    [setEndPoint]
+  );
 
   return (
     <>
@@ -13,16 +31,14 @@ export default function WaypointMarkers() {
           latitude={startPoint[1]}
           anchor="center"
           draggable
-          onDragEnd={(e) => {
-            useStore
-              .getState()
-              .setStartPoint([e.lngLat.lng, e.lngLat.lat]);
-          }}
+          onDragEnd={handleStartDragEnd}
         >
-          <div className="relative">
-            <div className="w-7 h-7 rounded-full bg-emerald-500 border-[3px] border-white shadow-lg shadow-emerald-500/30 flex items-center justify-center">
-              <div className="w-2 h-2 rounded-full bg-white" />
-            </div>
+          <div
+            role="img"
+            aria-label="Start point (draggable)"
+            className="w-7 h-7 rounded-full bg-emerald-500 border-[3px] border-white shadow-lg shadow-emerald-500/30 flex items-center justify-center cursor-grab active:cursor-grabbing"
+          >
+            <div className="w-2 h-2 rounded-full bg-white" />
           </div>
         </Marker>
       )}
@@ -32,16 +48,14 @@ export default function WaypointMarkers() {
           latitude={endPoint[1]}
           anchor="center"
           draggable
-          onDragEnd={(e) => {
-            useStore
-              .getState()
-              .setEndPoint([e.lngLat.lng, e.lngLat.lat]);
-          }}
+          onDragEnd={handleEndDragEnd}
         >
-          <div className="relative">
-            <div className="w-7 h-7 rounded-full bg-red-500 border-[3px] border-white shadow-lg shadow-red-500/30 flex items-center justify-center">
-              <div className="w-2 h-2 rounded-full bg-white" />
-            </div>
+          <div
+            role="img"
+            aria-label="End point (draggable)"
+            className="w-7 h-7 rounded-full bg-red-500 border-[3px] border-white shadow-lg shadow-red-500/30 flex items-center justify-center cursor-grab active:cursor-grabbing"
+          >
+            <div className="w-2 h-2 rounded-full bg-white" />
           </div>
         </Marker>
       )}

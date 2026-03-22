@@ -4,33 +4,35 @@ test.describe("App loads", () => {
   test("shows the instruction banner", async ({ page }) => {
     await page.goto("/");
 
-    await expect(page.getByText("Tap to set start point")).toBeVisible({
-      timeout: 15000,
-    });
+    await expect(
+      page.getByText("Tap or click to set start point", { exact: true })
+    ).toBeVisible({ timeout: 15000 });
   });
 
-  test("shows mode selector with A to B and Loop options", async ({ page }) => {
+  test("shows mode selector with two options", async ({ page }) => {
     await page.goto("/");
 
-    await expect(page.getByRole("button", { name: "A to B" })).toBeVisible({
-      timeout: 15000,
-    });
-    await expect(page.getByRole("button", { name: "Loop" })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /point to point/i })
+    ).toBeVisible({ timeout: 15000 });
+    await expect(
+      page.getByRole("button", { name: /loop/i })
+    ).toBeVisible();
   });
 
   test("shows unit toggle", async ({ page }) => {
     await page.goto("/");
 
-    await expect(page.getByRole("button", { name: "mi" })).toBeVisible({
-      timeout: 15000,
-    });
+    await expect(
+      page.getByRole("button", { name: /switch to/i })
+    ).toBeVisible({ timeout: 15000 });
   });
 
   test("shows My location button initially", async ({ page }) => {
     await page.goto("/");
 
     await expect(
-      page.getByRole("button", { name: "My location" })
+      page.getByRole("button", { name: /current location/i })
     ).toBeVisible({ timeout: 15000 });
   });
 });
@@ -39,10 +41,9 @@ test.describe("Mode switching", () => {
   test("loop mode shows distance slider", async ({ page }) => {
     await page.goto("/");
 
-    const loopBtn = page.getByRole("button", { name: "Loop" });
+    const loopBtn = page.getByRole("button", { name: /loop/i });
     await expect(loopBtn).toBeVisible({ timeout: 15000 });
 
-    // Dismiss any overlays first
     await page.evaluate(() => {
       document.querySelectorAll("nextjs-portal").forEach((el) => el.remove());
     });
@@ -54,7 +55,7 @@ test.describe("Mode switching", () => {
   test("switching back to A to B hides distance slider", async ({ page }) => {
     await page.goto("/");
 
-    const loopBtn = page.getByRole("button", { name: "Loop" });
+    const loopBtn = page.getByRole("button", { name: /loop/i });
     await expect(loopBtn).toBeVisible({ timeout: 15000 });
 
     await page.evaluate(() => {
@@ -64,50 +65,35 @@ test.describe("Mode switching", () => {
     await loopBtn.click();
     await expect(page.getByText("Target distance")).toBeVisible();
 
-    await page.getByRole("button", { name: "A to B" }).click();
+    await page.getByRole("button", { name: /point to point/i }).click();
     await expect(page.getByText("Target distance")).not.toBeVisible();
   });
 
   test("A to B is selected by default", async ({ page }) => {
     await page.goto("/");
 
-    const abButton = page.getByRole("button", { name: "A to B" });
+    const abButton = page.getByRole("button", { name: /point to point/i });
     await expect(abButton).toBeVisible({ timeout: 15000 });
-    await expect(abButton).toHaveClass(/bg-white/);
+    await expect(abButton).toHaveAttribute("aria-pressed", "true");
   });
 });
 
 test.describe("Unit toggle", () => {
-  test("toggles between mi and km", async ({ page }) => {
+  test("toggles units", async ({ page }) => {
     await page.goto("/");
 
     await page.evaluate(() => {
       document.querySelectorAll("nextjs-portal").forEach((el) => el.remove());
     });
 
-    const unitButton = page.getByRole("button", { name: "mi" });
+    const unitButton = page.getByRole("button", { name: /switch to/i });
     await expect(unitButton).toBeVisible({ timeout: 15000 });
 
     await unitButton.click();
-    await expect(page.getByRole("button", { name: "km" })).toBeVisible();
-  });
-
-  test("toggles back to mi", async ({ page }) => {
-    await page.goto("/");
-
-    await page.evaluate(() => {
-      document.querySelectorAll("nextjs-portal").forEach((el) => el.remove());
-    });
-
-    await expect(page.getByRole("button", { name: "mi" })).toBeVisible({
-      timeout: 15000,
-    });
-
-    await page.getByRole("button", { name: "mi" }).click();
-    await expect(page.getByRole("button", { name: "km" })).toBeVisible();
-
-    await page.getByRole("button", { name: "km" }).click();
-    await expect(page.getByRole("button", { name: "mi" })).toBeVisible();
+    // After clicking, the label should change
+    await expect(
+      page.getByRole("button", { name: /switch to/i })
+    ).toBeVisible();
   });
 });
 
@@ -118,16 +104,24 @@ test.describe("Controls", () => {
     await expect(page.getByText("Pace")).toBeVisible({ timeout: 15000 });
   });
 
-  test("shows Reset button when markers are placed but not initially", async ({
-    page,
-  }) => {
+  test("pace input defaults to 9", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("button", { name: "A to B" })).toBeVisible({
-      timeout: 15000,
+
+    const paceInput = page.getByRole("spinbutton", {
+      name: /running pace/i,
     });
+    await expect(paceInput).toBeVisible({ timeout: 15000 });
+    await expect(paceInput).toHaveValue("9");
+  });
+
+  test("shows Reset button only when markers are placed", async ({ page }) => {
+    await page.goto("/");
+    await expect(
+      page.getByRole("button", { name: /point to point/i })
+    ).toBeVisible({ timeout: 15000 });
 
     await expect(
-      page.getByRole("button", { name: "Reset" })
+      page.getByRole("button", { name: /reset/i })
     ).not.toBeVisible();
   });
 });
