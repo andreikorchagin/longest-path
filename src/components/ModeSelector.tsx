@@ -23,12 +23,12 @@ export default function ModeSelector() {
   };
 
   return (
-    <div role="group" aria-label="Route mode" className="flex rounded-lg bg-zinc-100 p-0.5">
+    <div role="group" aria-label="Route mode" className="flex rounded-xl bg-zinc-100 p-1">
       <button
         onClick={() => handleModeChange("point-to-point")}
         aria-pressed={mode === "point-to-point"}
         aria-label="Point to point route"
-        className={`flex-1 rounded-md px-3.5 py-2.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 ${
+        className={`flex-1 rounded-lg px-5 py-3 text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 ${
           mode === "point-to-point"
             ? "bg-white text-zinc-900 shadow-sm"
             : "text-zinc-500 hover:text-zinc-700"
@@ -40,7 +40,7 @@ export default function ModeSelector() {
         onClick={() => handleModeChange("loop")}
         aria-pressed={mode === "loop"}
         aria-label="Loop route back to start"
-        className={`flex-1 rounded-md px-3.5 py-2.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 ${
+        className={`flex-1 rounded-lg px-5 py-3 text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 ${
           mode === "loop"
             ? "bg-white text-zinc-900 shadow-sm"
             : "text-zinc-500 hover:text-zinc-700"

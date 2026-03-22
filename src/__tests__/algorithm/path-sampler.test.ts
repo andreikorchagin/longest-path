@@ -40,7 +40,7 @@ function makeWaterfront(id: string, coords: LngLat[]): PathGeometry {
 }
 
 describe("sampleWaypointsFromPaths", () => {
-  it("samples waypoints along a running path", () => {
+  it("produces waypoints from a long named running path", () => {
     const paths: PathGeometry[] = [
       makeRunningPath(
         "1",
@@ -60,10 +60,14 @@ describe("sampleWaypointsFromPaths", () => {
 
   it("uses pier tips as dead-end waypoints", () => {
     const paths: PathGeometry[] = [
-      makePier("1", [
-        [-74.01, 40.73],  // base
-        [-74.015, 40.73], // tip
-      ], "Pier 40"),
+      makePier(
+        "1",
+        [
+          [-74.01, 40.73],
+          [-74.015, 40.73],
+        ],
+        "Pier 40"
+      ),
     ];
 
     const waypoints = sampleWaypointsFromPaths(paths, start, end);
@@ -73,66 +77,60 @@ describe("sampleWaypointsFromPaths", () => {
     expect(piers[0].name).toBe("Pier 40");
   });
 
-  it("scores named paths higher than unnamed ones", () => {
-    const paths: PathGeometry[] = [
-      makeRunningPath(
-        "named",
-        [
-          [-74.009, 40.725],
-          [-74.009, 40.735],
-        ],
-        "Hudson River Greenway"
-      ),
-      makeRunningPath("unnamed", [
-        [-74.008, 40.725],
-        [-74.008, 40.735],
-      ]),
-    ];
-
-    const waypoints = sampleWaypointsFromPaths(paths, start, end);
-    const named = waypoints.filter((w) => w.name);
-    const unnamed = waypoints.filter((w) => !w.name);
-
-    if (named.length > 0 && unnamed.length > 0) {
-      expect(named[0].score).toBeGreaterThan(unnamed[0].score);
-    }
-  });
-
-  it("scores paths near water higher", () => {
+  it("prefers waterfront paths over inland paths when both available", () => {
     const waterfront = makeWaterfront("water", [
       [-74.015, 40.725],
       [-74.015, 40.735],
     ]);
 
-    // Path near water
-    const nearWater = makeRunningPath("near", [
-      [-74.014, 40.725],
-      [-74.014, 40.735],
-    ]);
+    // Long path near water
+    const nearWater = makeRunningPath(
+      "near",
+      [
+        [-74.014, 40.722],
+        [-74.014, 40.726],
+        [-74.014, 40.73],
+        [-74.014, 40.734],
+        [-74.014, 40.738],
+      ],
+      "Waterfront Path"
+    );
 
-    // Path far from water
+    // Short path far from water
     const farFromWater = makeRunningPath("far", [
-      [-74.005, 40.725],
-      [-74.005, 40.735],
+      [-74.005, 40.728],
+      [-74.005, 40.732],
     ]);
 
-    const waypointsNear = sampleWaypointsFromPaths(
-      [waterfront, nearWater],
-      start,
-      end
-    );
-    const waypointsFar = sampleWaypointsFromPaths(
-      [waterfront, farFromWater],
+    const waypoints = sampleWaypointsFromPaths(
+      [waterfront, nearWater, farFromWater],
       start,
       end
     );
 
-    const nearScore = waypointsNear.find((w) => w.id.includes("near"))?.score;
-    const farScore = waypointsFar.find((w) => w.id.includes("far"))?.score;
+    // The near-water path should produce waypoints; the short far one shouldn't
+    const nearWaypoints = waypoints.filter((w) => w.id.includes("near"));
+    expect(nearWaypoints.length).toBeGreaterThan(0);
+  });
 
-    if (nearScore !== undefined && farScore !== undefined) {
-      expect(nearScore).toBeGreaterThan(farScore);
+  it("limits piers to MAX_PIERS (3)", () => {
+    const piers: PathGeometry[] = [];
+    for (let i = 0; i < 8; i++) {
+      piers.push(
+        makePier(
+          `pier-${i}`,
+          [
+            [-74.01, 40.722 + i * 0.003],
+            [-74.015, 40.722 + i * 0.003],
+          ],
+          `Pier ${i}`
+        )
+      );
     }
+
+    const waypoints = sampleWaypointsFromPaths(piers, start, end);
+    const pierWaypoints = waypoints.filter((w) => w.isDeadEnd);
+    expect(pierWaypoints.length).toBeLessThanOrEqual(3);
   });
 
   it("skips very short paths", () => {
@@ -159,42 +157,40 @@ describe("sampleWaypointsFromPaths", () => {
     expect(waypoints).toHaveLength(0);
   });
 
-  it("does not exceed maxWaypoints", () => {
-    // Create many long paths
-    const paths: PathGeometry[] = [];
-    for (let i = 0; i < 20; i++) {
-      const lng = -74.01 + i * 0.002;
-      paths.push(
-        makeRunningPath(
-          `p${i}`,
-          [
-            [lng, 40.72],
-            [lng, 40.725],
-            [lng, 40.73],
-            [lng, 40.735],
-            [lng, 40.74],
-          ],
-          `Path ${i}`
-        )
-      );
+  it("produces fewer waypoints for simple routes (minimize turns)", () => {
+    // Single long path — should produce just a few guidepoints, not dozens
+    const longCoords: LngLat[] = [];
+    for (let i = 0; i < 50; i++) {
+      longCoords.push([-74.01, 40.72 + i * 0.0004]);
     }
 
-    const waypoints = sampleWaypointsFromPaths(paths, start, end, 10);
-    expect(waypoints.length).toBeLessThanOrEqual(10);
+    const paths: PathGeometry[] = [
+      makeRunningPath("long", longCoords, "River Path"),
+    ];
+
+    const waypoints = sampleWaypointsFromPaths(paths, start, end);
+    // Should produce just a few guidepoints, not 50
+    expect(waypoints.length).toBeLessThanOrEqual(8);
+    expect(waypoints.length).toBeGreaterThan(0);
   });
 
   it("removes waypoints too close to start or end", () => {
     const paths: PathGeometry[] = [
-      makeRunningPath("edge", [
-        [-74.01, 40.72],    // Same as start
-        [-74.01, 40.725],
-        [-74.01, 40.74],    // Same as end
-      ]),
+      makeRunningPath(
+        "edge",
+        [
+          [-74.01, 40.72], // Same as start
+          [-74.01, 40.725],
+          [-74.01, 40.73],
+          [-74.01, 40.735],
+          [-74.01, 40.74], // Same as end
+        ],
+        "Path"
+      ),
     ];
 
     const waypoints = sampleWaypointsFromPaths(paths, start, end);
     for (const wp of waypoints) {
-      // None should be exactly at start or end
       expect(wp.lngLat).not.toEqual(start);
       expect(wp.lngLat).not.toEqual(end);
     }

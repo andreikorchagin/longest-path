@@ -55,11 +55,7 @@ export default function MapView() {
       const pos = await getCurrentPosition();
       setStartPoint(pos);
       setViewState({ longitude: pos[0], latitude: pos[1], zoom: 15 });
-      if (mode === "point-to-point") {
-        setPlacingMarker("end");
-      } else {
-        setPlacingMarker(null);
-      }
+      setPlacingMarker(mode === "point-to-point" ? "end" : null);
     } catch {
       // Error is in the hook state
     }
@@ -81,21 +77,21 @@ export default function MapView() {
 
       {/* Instruction banner */}
       {instruction && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10" role="status">
-          <div className="bg-white/95 backdrop-blur-md rounded-full px-5 py-2.5 shadow-lg shadow-black/5 border border-zinc-200/50 text-sm font-medium text-zinc-700">
+        <div className="absolute top-5 left-1/2 -translate-x-1/2 z-10" role="status">
+          <div className="bg-white/95 backdrop-blur-md rounded-full px-6 py-3 shadow-lg shadow-black/5 border border-zinc-200/50 text-sm font-medium text-zinc-600 tracking-wide">
             {instruction}
           </div>
         </div>
       )}
 
       {/* Top-right controls */}
-      <div className="absolute top-4 right-4 z-10 flex gap-2">
+      <div className="absolute top-5 right-5 z-10 flex gap-3">
         {!startPoint && (
           <button
             onClick={handleUseMyLocation}
             disabled={geoLoading}
             aria-label="Use my current location as start point"
-            className="bg-white/95 backdrop-blur-md rounded-full px-4 py-2.5 shadow-lg shadow-black/5 border border-zinc-200/50 text-sm font-medium text-zinc-700 hover:bg-white active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+            className="bg-white/95 backdrop-blur-md rounded-full px-5 py-3 shadow-lg shadow-black/5 border border-zinc-200/50 text-sm font-medium text-zinc-600 hover:bg-white active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
           >
             {geoLoading ? "Locating..." : "My location"}
           </button>
@@ -104,7 +100,7 @@ export default function MapView() {
           <button
             onClick={handleReset}
             aria-label="Reset markers and clear route"
-            className="bg-white/95 backdrop-blur-md rounded-full px-4 py-2.5 shadow-lg shadow-black/5 border border-zinc-200/50 text-sm font-medium text-zinc-500 hover:text-zinc-700 hover:bg-white active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+            className="bg-white/95 backdrop-blur-md rounded-full px-5 py-3 shadow-lg shadow-black/5 border border-zinc-200/50 text-sm font-medium text-zinc-500 hover:text-zinc-700 hover:bg-white active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
           >
             Reset
           </button>
@@ -115,31 +111,32 @@ export default function MapView() {
       {isGenerating && <ProgressIndicator />}
 
       {/* Bottom panel */}
-      <div className="absolute bottom-0 left-0 right-0 z-10 p-4 md:p-6">
-        <div className="max-w-md mx-auto bg-white/95 backdrop-blur-md rounded-2xl shadow-xl shadow-black/10 border border-zinc-200/50 overflow-hidden">
-          {/* Controls */}
-          <div className="px-4 pt-4 pb-3 space-y-3">
-            <div className="flex items-center justify-between gap-3">
+      <div className="absolute bottom-0 left-0 right-0 z-10 p-5 md:p-8">
+        <div className="max-w-lg mx-auto bg-white/95 backdrop-blur-md rounded-3xl shadow-xl shadow-black/8 border border-zinc-200/50 overflow-hidden">
+          {/* Settings section */}
+          <div className="px-6 pt-6 pb-5 space-y-5">
+            {/* Mode + Units row */}
+            <div className="flex items-center justify-between gap-4">
               <ModeSelector />
               <button
                 onClick={() => setUnits(units === "mi" ? "km" : "mi")}
                 aria-label={`Switch to ${units === "mi" ? "kilometers" : "miles"}`}
-                className="text-xs text-zinc-500 hover:text-zinc-700 font-medium px-3 py-2 rounded-md hover:bg-zinc-100 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
+                className="text-sm text-zinc-500 hover:text-zinc-700 font-medium px-3 py-2 rounded-lg hover:bg-zinc-100 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
               >
                 {units}
               </button>
             </div>
 
+            {/* Distance slider (loop mode) */}
             {mode === "loop" && <DistanceSlider />}
 
-            <div className="flex items-center justify-between">
-              <PaceInput />
-            </div>
+            {/* Pace */}
+            <PaceInput />
           </div>
 
           {/* Route stats */}
           {routeStats && (
-            <div className="px-4 py-3 border-t border-zinc-100">
+            <div className="px-6 py-5 border-t border-zinc-100 bg-zinc-50/50">
               <RouteStats />
             </div>
           )}
@@ -149,7 +146,7 @@ export default function MapView() {
             <div
               role="alert"
               aria-live="assertive"
-              className="px-4 py-2 bg-red-50 border-t border-red-100"
+              className="px-6 py-4 bg-red-50 border-t border-red-100"
             >
               <p className="text-red-600 text-sm">{error}</p>
             </div>
@@ -157,11 +154,11 @@ export default function MapView() {
 
           {/* Generate button */}
           {canGenerate && (
-            <div className="px-4 pb-4 pt-1">
+            <div className="px-6 pb-6 pt-2">
               <button
                 onClick={generateRoute}
                 disabled={isGenerating}
-                className="w-full bg-zinc-900 hover:bg-zinc-800 disabled:bg-zinc-300 text-white font-medium rounded-xl px-4 py-3 active:scale-[0.98] transition-all text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                className="w-full bg-zinc-900 hover:bg-zinc-800 disabled:bg-zinc-300 text-white font-semibold rounded-2xl px-5 py-4 active:scale-[0.98] transition-all text-base tracking-wide focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
               >
                 {routeStats ? "Regenerate" : "Generate Route"}
               </button>

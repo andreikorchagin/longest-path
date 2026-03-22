@@ -20,28 +20,28 @@ export default function RouteStats() {
   const piers = selectedWaypoints.filter((w) => w.isDeadEnd).length;
 
   return (
-    <dl className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
+    <dl className="flex flex-wrap items-baseline gap-x-6 gap-y-3">
       <div>
-        <dd className="text-lg font-semibold text-zinc-900 tabular-nums">
+        <dd className="text-2xl font-bold text-zinc-900 tabular-nums tracking-tight">
           {distance}
         </dd>
-        <dt className="text-xs text-zinc-500">{altDistance}</dt>
+        <dt className="text-sm text-zinc-500 mt-0.5">{altDistance}</dt>
       </div>
-      <div className="h-8 w-px bg-zinc-200" aria-hidden="true" />
+      <div className="h-10 w-px bg-zinc-200" aria-hidden="true" />
       <div>
-        <dd className="text-lg font-semibold text-zinc-900 tabular-nums">
+        <dd className="text-2xl font-bold text-zinc-900 tabular-nums tracking-tight">
           {Math.round(routeStats.durationMin)} min
         </dd>
-        <dt className="text-xs text-zinc-500">est. time</dt>
+        <dt className="text-sm text-zinc-500 mt-0.5">est. time</dt>
       </div>
       {piers > 0 && (
         <>
-          <div className="h-8 w-px bg-zinc-200" aria-hidden="true" />
+          <div className="h-10 w-px bg-zinc-200" aria-hidden="true" />
           <div>
-            <dd className="text-lg font-semibold text-zinc-900 tabular-nums">
+            <dd className="text-2xl font-bold text-zinc-900 tabular-nums tracking-tight">
               {piers}
             </dd>
-            <dt className="text-xs text-zinc-500">
+            <dt className="text-sm text-zinc-500 mt-0.5">
               {piers === 1 ? "pier" : "piers"}
             </dt>
           </div>

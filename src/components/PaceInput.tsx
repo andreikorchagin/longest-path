@@ -21,8 +21,8 @@ export default function PaceInput() {
   };
 
   return (
-    <div className="flex items-center gap-2">
-      <label htmlFor={paceId} className="text-xs text-zinc-500 whitespace-nowrap">
+    <div className="flex items-center gap-3">
+      <label htmlFor={paceId} className="text-sm text-zinc-500">
         Pace
       </label>
       <input
@@ -34,9 +34,11 @@ export default function PaceInput() {
         value={parseFloat(displayPace.toFixed(1))}
         onChange={handleChange}
         aria-label={`Running pace in ${paceLabel}`}
-        className="w-16 text-sm font-medium text-zinc-800 bg-zinc-100 rounded-md px-2 py-2 text-center border-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
+        className="w-20 text-base font-semibold text-zinc-800 bg-zinc-100 rounded-lg px-3 py-2.5 text-center border-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
       />
-      <span className="text-xs text-zinc-500" aria-hidden="true">{paceLabel}</span>
+      <span className="text-sm text-zinc-500" aria-hidden="true">
+        {paceLabel}
+      </span>
     </div>
   );
 }

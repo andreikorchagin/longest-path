@@ -101,7 +101,9 @@ test.describe("Controls", () => {
   test("shows pace input", async ({ page }) => {
     await page.goto("/");
 
-    await expect(page.getByText("Pace")).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("Pace", { exact: true })).toBeVisible({
+      timeout: 15000,
+    });
   });
 
   test("pace input defaults to 9", async ({ page }) => {
