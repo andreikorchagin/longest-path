@@ -11,7 +11,7 @@ export default function WaypointMarkers() {
         <Marker
           longitude={startPoint[0]}
           latitude={startPoint[1]}
-          anchor="bottom"
+          anchor="center"
           draggable
           onDragEnd={(e) => {
             useStore
@@ -19,11 +19,10 @@ export default function WaypointMarkers() {
               .setStartPoint([e.lngLat.lng, e.lngLat.lat]);
           }}
         >
-          <div className="flex flex-col items-center">
-            <div className="w-8 h-8 rounded-full bg-emerald-500 border-2 border-white shadow-lg flex items-center justify-center text-white text-xs font-bold">
-              S
+          <div className="relative">
+            <div className="w-7 h-7 rounded-full bg-emerald-500 border-[3px] border-white shadow-lg shadow-emerald-500/30 flex items-center justify-center">
+              <div className="w-2 h-2 rounded-full bg-white" />
             </div>
-            <div className="w-0 h-0 border-l-[6px] border-r-[6px] border-t-[8px] border-l-transparent border-r-transparent border-t-emerald-500 -mt-0.5" />
           </div>
         </Marker>
       )}
@@ -31,7 +30,7 @@ export default function WaypointMarkers() {
         <Marker
           longitude={endPoint[0]}
           latitude={endPoint[1]}
-          anchor="bottom"
+          anchor="center"
           draggable
           onDragEnd={(e) => {
             useStore
@@ -39,11 +38,10 @@ export default function WaypointMarkers() {
               .setEndPoint([e.lngLat.lng, e.lngLat.lat]);
           }}
         >
-          <div className="flex flex-col items-center">
-            <div className="w-8 h-8 rounded-full bg-red-500 border-2 border-white shadow-lg flex items-center justify-center text-white text-xs font-bold">
-              E
+          <div className="relative">
+            <div className="w-7 h-7 rounded-full bg-red-500 border-[3px] border-white shadow-lg shadow-red-500/30 flex items-center justify-center">
+              <div className="w-2 h-2 rounded-full bg-white" />
             </div>
-            <div className="w-0 h-0 border-l-[6px] border-r-[6px] border-t-[8px] border-l-transparent border-r-transparent border-t-red-500 -mt-0.5" />
           </div>
         </Marker>
       )}

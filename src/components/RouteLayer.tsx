@@ -8,26 +8,29 @@ export default function RouteLayer() {
 
   return (
     <Source id="route" type="geojson" data={routeGeoJSON}>
+      {/* Outer glow */}
       <Layer
-        id="route-outline"
+        id="route-glow"
         type="line"
         paint={{
-          "line-color": "#1e3a5f",
-          "line-width": 6,
-          "line-opacity": 0.4,
+          "line-color": "#3b82f6",
+          "line-width": 10,
+          "line-opacity": 0.15,
+          "line-blur": 4,
         }}
         layout={{
           "line-join": "round",
           "line-cap": "round",
         }}
       />
+      {/* Main line */}
       <Layer
         id="route-line"
         type="line"
         paint={{
-          "line-color": "#3b82f6",
+          "line-color": "#2563eb",
           "line-width": 4,
-          "line-opacity": 0.9,
+          "line-opacity": 0.85,
         }}
         layout={{
           "line-join": "round",

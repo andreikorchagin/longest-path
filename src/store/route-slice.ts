@@ -1,6 +1,6 @@
 import type { StateCreator } from "zustand";
 import type { RouteStats } from "@/types/route";
-import type { ScoredWaypoint } from "@/lib/algorithm/types";
+import type { ScoredWaypoint, ProgressStep } from "@/lib/algorithm/types";
 import type { StoreState } from "./index";
 import { generatePointToPointRoute } from "@/lib/algorithm/route-pipeline";
 import { generateLoopRoute } from "@/lib/algorithm/loop-generator";
@@ -11,6 +11,8 @@ export interface RouteSlice {
   discoveredFeatures: ScoredWaypoint[];
   selectedWaypoints: ScoredWaypoint[];
   isGenerating: boolean;
+  progressStep: ProgressStep | null;
+  progressDetail: string | null;
   error: string | null;
 
   generateRoute: () => Promise<void>;
@@ -26,6 +28,8 @@ export const createRouteSlice: StateCreator<StoreState, [], [], RouteSlice> = (
   discoveredFeatures: [],
   selectedWaypoints: [],
   isGenerating: false,
+  progressStep: null,
+  progressDetail: null,
   error: null,
 
   generateRoute: async () => {
@@ -41,13 +45,17 @@ export const createRouteSlice: StateCreator<StoreState, [], [], RouteSlice> = (
       return;
     }
 
-    set({ isGenerating: true, error: null });
+    set({ isGenerating: true, error: null, progressStep: null });
+
+    const onProgress = (step: ProgressStep, detail?: string) => {
+      set({ progressStep: step, progressDetail: detail || null });
+    };
 
     try {
       const result =
         mode === "loop"
-          ? await generateLoopRoute(startPoint, targetDistanceKm)
-          : await generatePointToPointRoute(startPoint, endPoint!);
+          ? await generateLoopRoute(startPoint, targetDistanceKm, onProgress)
+          : await generatePointToPointRoute(startPoint, endPoint!, onProgress);
 
       set({
         routeGeoJSON: result.route.geometry,
@@ -55,11 +63,15 @@ export const createRouteSlice: StateCreator<StoreState, [], [], RouteSlice> = (
         discoveredFeatures: result.discoveredFeatures,
         selectedWaypoints: result.selectedWaypoints,
         isGenerating: false,
+        progressStep: null,
+        progressDetail: null,
       });
     } catch (err) {
       set({
         error: err instanceof Error ? err.message : "Route generation failed",
         isGenerating: false,
+        progressStep: null,
+        progressDetail: null,
       });
     }
   },
@@ -71,5 +83,7 @@ export const createRouteSlice: StateCreator<StoreState, [], [], RouteSlice> = (
       discoveredFeatures: [],
       selectedWaypoints: [],
       error: null,
+      progressStep: null,
+      progressDetail: null,
     }),
 });

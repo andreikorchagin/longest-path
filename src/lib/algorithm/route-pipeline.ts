@@ -1,9 +1,9 @@
 import type { LngLat } from "@/types/geo";
-import type { Route, RouteStats } from "@/types/route";
-import type { ScoredWaypoint } from "./types";
+import type { Route } from "@/types/route";
+import type { ScoredWaypoint, ProgressCallback } from "./types";
 import { createCorridor } from "./corridor";
-import { buildOverpassQuery, elementsToWaypoints } from "./overpass-query";
-import { selectWaypoints } from "./waypoint-selection";
+import { buildOverpassQuery, parsePathGeometries } from "./overpass-query";
+import { sampleWaypointsFromPaths } from "./path-sampler";
 import { orderWaypointsLinear } from "./waypoint-ordering";
 import { queryOverpass } from "@/lib/api/overpass";
 import { getDirections } from "@/lib/api/mapbox-directions";
@@ -15,33 +15,46 @@ export interface PipelineResult {
 }
 
 /**
- * Generate a point-to-point route that maximizes interesting exploration.
+ * Generate a point-to-point route that follows running infrastructure.
  *
- * 1. Create expanded corridor between start and end
- * 2. Query Overpass for interesting features
- * 3. Score and select waypoints (anti-zigzag)
- * 4. Order waypoints along travel direction
- * 5. Route through Mapbox Directions API
+ * New approach: "path-following" instead of "point-hopping"
+ * 1. Query Overpass for path geometries (footways, waterfront, piers)
+ * 2. Sample waypoints along these paths (not isolated centroids)
+ * 3. Score by water proximity and path quality
+ * 4. Order along travel direction
+ * 5. Route through Mapbox — waypoints follow actual paths, so no zigzag
  */
 export async function generatePointToPointRoute(
   start: LngLat,
-  end: LngLat
+  end: LngLat,
+  onProgress?: ProgressCallback
 ): Promise<PipelineResult> {
   // Step 1: Create corridor
+  onProgress?.("discovering", "Searching for running paths...");
   const bbox = createCorridor(start, end);
 
-  // Step 2: Query Overpass for features
+  // Step 2: Query Overpass for path geometries
   const query = buildOverpassQuery(bbox);
   const overpassData = await queryOverpass(query);
-  const discoveredFeatures = elementsToWaypoints(overpassData.elements);
 
-  // Step 3: Select waypoints
-  const selectedWaypoints = selectWaypoints(discoveredFeatures, start, end);
+  // Step 3: Parse into typed path geometries
+  onProgress?.("analyzing", "Analyzing path network...");
+  const pathGeometries = parsePathGeometries(overpassData.elements);
 
-  // Step 4: Order waypoints
-  const orderedWaypoints = orderWaypointsLinear(selectedWaypoints, start, end);
+  // Step 4: Sample waypoints along paths, scored by quality
+  onProgress?.("selecting", "Selecting best route...");
+  const sampledWaypoints = sampleWaypointsFromPaths(
+    pathGeometries,
+    start,
+    end,
+    20 // Keep under 23 (Mapbox limit minus start/end)
+  );
 
-  // Step 5: Build coordinate list and route
+  // Step 5: Order along travel direction
+  const orderedWaypoints = orderWaypointsLinear(sampledWaypoints, start, end);
+
+  // Step 6: Route through Mapbox
+  onProgress?.("routing", "Calculating route...");
   const coordinates: LngLat[] = [
     start,
     ...orderedWaypoints.map((wp) => wp.lngLat),
@@ -70,5 +83,11 @@ export async function generatePointToPointRoute(
     },
   };
 
-  return { route, discoveredFeatures, selectedWaypoints: orderedWaypoints };
+  onProgress?.("done");
+
+  return {
+    route,
+    discoveredFeatures: sampledWaypoints, // All sampled waypoints
+    selectedWaypoints: orderedWaypoints,   // The ones used in routing
+  };
 }

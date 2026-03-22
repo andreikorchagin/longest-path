@@ -1,12 +1,12 @@
 import { describe, it, expect } from "vitest";
 import {
   buildOverpassQuery,
-  elementsToWaypoints,
+  parsePathGeometries,
 } from "@/lib/algorithm/overpass-query";
 import type { OverpassElement } from "@/types/overpass";
 
 describe("buildOverpassQuery", () => {
-  it("includes pier, park, footway, and viewpoint queries", () => {
+  it("includes path, pier, and park queries", () => {
     const query = buildOverpassQuery({
       south: 40.7,
       west: -74.02,
@@ -14,12 +14,10 @@ describe("buildOverpassQuery", () => {
       east: -73.95,
     });
 
-    expect(query).toContain("man_made");
-    expect(query).toContain("pier");
-    expect(query).toContain("leisure");
-    expect(query).toContain("park");
     expect(query).toContain("footway");
-    expect(query).toContain("viewpoint");
+    expect(query).toContain("cycleway");
+    expect(query).toContain("pier");
+    expect(query).toContain("park");
     expect(query).toContain("out geom");
   });
 
@@ -35,8 +33,8 @@ describe("buildOverpassQuery", () => {
   });
 });
 
-describe("elementsToWaypoints", () => {
-  it("converts a pier element to a scored waypoint", () => {
+describe("parsePathGeometries", () => {
+  it("converts a pier element to a pier path geometry", () => {
     const elements: OverpassElement[] = [
       {
         type: "way",
@@ -49,76 +47,54 @@ describe("elementsToWaypoints", () => {
       },
     ];
 
-    const waypoints = elementsToWaypoints(elements);
-
-    expect(waypoints).toHaveLength(1);
-    expect(waypoints[0].featureType).toBe("pier");
-    expect(waypoints[0].isDeadEnd).toBe(true);
-    expect(waypoints[0].score).toBe(100); // 90 base + 10 dead-end bonus
-    expect(waypoints[0].name).toBe("Pier 40");
-    // Pier should use the last point (tip)
-    expect(waypoints[0].lngLat[0]).toBeCloseTo(-74.013, 3);
-    expect(waypoints[0].lngLat[1]).toBeCloseTo(40.725, 3);
+    const paths = parsePathGeometries(elements);
+    expect(paths).toHaveLength(1);
+    expect(paths[0].type).toBe("pier");
+    expect(paths[0].name).toBe("Pier 40");
+    expect(paths[0].coordinates).toHaveLength(2);
+    expect(paths[0].coordinates[0]).toEqual([-74.011, 40.727]);
   });
 
-  it("converts a park element using centroid", () => {
+  it("converts a footway element to a running_path", () => {
     const elements: OverpassElement[] = [
       {
         type: "way",
         id: 456,
-        tags: { leisure: "park", name: "Battery Park" },
+        tags: { highway: "footway", name: "Hudson River Greenway" },
         geometry: [
-          { lat: 40.70, lon: -74.02 },
-          { lat: 40.70, lon: -74.01 },
-          { lat: 40.71, lon: -74.01 },
-          { lat: 40.71, lon: -74.02 },
+          { lat: 40.72, lon: -74.01 },
+          { lat: 40.73, lon: -74.01 },
+          { lat: 40.74, lon: -74.01 },
         ],
       },
     ];
 
-    const waypoints = elementsToWaypoints(elements);
-
-    expect(waypoints).toHaveLength(1);
-    expect(waypoints[0].featureType).toBe("park");
-    expect(waypoints[0].isDeadEnd).toBe(false);
-    // Centroid
-    expect(waypoints[0].lngLat[0]).toBeCloseTo(-74.015, 3);
-    expect(waypoints[0].lngLat[1]).toBeCloseTo(40.705, 3);
+    const paths = parsePathGeometries(elements);
+    expect(paths).toHaveLength(1);
+    expect(paths[0].type).toBe("running_path");
+    expect(paths[0].name).toBe("Hudson River Greenway");
+    expect(paths[0].coordinates).toHaveLength(3);
   });
 
-  it("converts a viewpoint node", () => {
-    const elements: OverpassElement[] = [
-      {
-        type: "node",
-        id: 789,
-        tags: { tourism: "viewpoint" },
-        lat: 40.73,
-        lon: -74.005,
-      },
-    ];
-
-    const waypoints = elementsToWaypoints(elements);
-
-    expect(waypoints).toHaveLength(1);
-    expect(waypoints[0].featureType).toBe("viewpoint");
-    expect(waypoints[0].score).toBe(70);
-  });
-
-  it("skips elements with no recognized tags", () => {
+  it("converts a park boundary", () => {
     const elements: OverpassElement[] = [
       {
         type: "way",
-        id: 999,
-        tags: { building: "yes" },
-        geometry: [{ lat: 40.73, lon: -74.005 }],
+        id: 789,
+        tags: { leisure: "park", name: "Battery Park" },
+        geometry: [
+          { lat: 40.70, lon: -74.02 },
+          { lat: 40.71, lon: -74.01 },
+        ],
       },
     ];
 
-    const waypoints = elementsToWaypoints(elements);
-    expect(waypoints).toHaveLength(0);
+    const paths = parsePathGeometries(elements);
+    expect(paths).toHaveLength(1);
+    expect(paths[0].type).toBe("park");
   });
 
-  it("handles elements with no geometry", () => {
+  it("skips elements without geometry", () => {
     const elements: OverpassElement[] = [
       {
         type: "way",
@@ -127,7 +103,36 @@ describe("elementsToWaypoints", () => {
       },
     ];
 
-    const waypoints = elementsToWaypoints(elements);
-    expect(waypoints).toHaveLength(0);
+    const paths = parsePathGeometries(elements);
+    expect(paths).toHaveLength(0);
+  });
+
+  it("skips elements with only one geometry point", () => {
+    const elements: OverpassElement[] = [
+      {
+        type: "way",
+        id: 222,
+        tags: { highway: "footway" },
+        geometry: [{ lat: 40.72, lon: -74.01 }],
+      },
+    ];
+
+    const paths = parsePathGeometries(elements);
+    expect(paths).toHaveLength(0);
+  });
+
+  it("skips non-way elements", () => {
+    const elements: OverpassElement[] = [
+      {
+        type: "node",
+        id: 333,
+        tags: { tourism: "viewpoint" },
+        lat: 40.73,
+        lon: -74.005,
+      },
+    ];
+
+    const paths = parsePathGeometries(elements);
+    expect(paths).toHaveLength(0);
   });
 });

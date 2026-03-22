@@ -26,20 +26,20 @@ export default function ModeSelector() {
     <div className="flex rounded-lg bg-zinc-100 p-0.5">
       <button
         onClick={() => handleModeChange("point-to-point")}
-        className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+        className={`flex-1 rounded-md px-3.5 py-1.5 text-xs font-semibold transition-all ${
           mode === "point-to-point"
-            ? "bg-white text-zinc-800 shadow-sm"
-            : "text-zinc-500 hover:text-zinc-700"
+            ? "bg-white text-zinc-900 shadow-sm"
+            : "text-zinc-400 hover:text-zinc-600"
         }`}
       >
-        A → B
+        A to B
       </button>
       <button
         onClick={() => handleModeChange("loop")}
-        className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+        className={`flex-1 rounded-md px-3.5 py-1.5 text-xs font-semibold transition-all ${
           mode === "loop"
-            ? "bg-white text-zinc-800 shadow-sm"
-            : "text-zinc-500 hover:text-zinc-700"
+            ? "bg-white text-zinc-900 shadow-sm"
+            : "text-zinc-400 hover:text-zinc-600"
         }`}
       >
         Loop

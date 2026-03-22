@@ -13,7 +13,7 @@ test.describe("App loads", () => {
   test("shows mode selector with A→B and Loop options", async ({ page }) => {
     await page.goto("/");
 
-    await expect(page.getByRole("button", { name: "A → B" })).toBeVisible({
+    await expect(page.getByRole("button", { name: "A to B" })).toBeVisible({
       timeout: 15000,
     });
     await expect(page.getByRole("button", { name: "Loop" })).toBeVisible();
@@ -27,11 +27,11 @@ test.describe("App loads", () => {
     });
   });
 
-  test("shows Use my location button initially", async ({ page }) => {
+  test("shows My location button initially", async ({ page }) => {
     await page.goto("/");
 
     await expect(
-      page.getByRole("button", { name: "Use my location" })
+      page.getByRole("button", { name: "My location" })
     ).toBeVisible({ timeout: 15000 });
   });
 });
@@ -58,7 +58,7 @@ test.describe("Mode switching", () => {
     await page.getByRole("button", { name: "Loop" }).click();
     await expect(page.getByText("Target distance")).toBeVisible();
 
-    await page.getByRole("button", { name: "A → B" }).click();
+    await page.getByRole("button", { name: "A to B" }).click();
     await expect(page.getByText("Target distance")).not.toBeVisible();
   });
 
@@ -66,7 +66,7 @@ test.describe("Mode switching", () => {
     await page.goto("/");
 
     // The A→B button should have the active style (bg-white)
-    const abButton = page.getByRole("button", { name: "A → B" });
+    const abButton = page.getByRole("button", { name: "A to B" });
     await expect(abButton).toBeVisible({ timeout: 15000 });
     await expect(abButton).toHaveClass(/bg-white/);
   });
@@ -105,7 +105,7 @@ test.describe("State-driven interactions", () => {
     page,
   }) => {
     await page.goto("/");
-    await expect(page.getByRole("button", { name: "A → B" })).toBeVisible({
+    await expect(page.getByRole("button", { name: "A to B" })).toBeVisible({
       timeout: 15000,
     });
 
@@ -132,7 +132,7 @@ test.describe("State-driven interactions", () => {
 
   test("shows Reset button when markers are placed", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("button", { name: "A → B" })).toBeVisible({
+    await expect(page.getByRole("button", { name: "A to B" })).toBeVisible({
       timeout: 15000,
     });
 

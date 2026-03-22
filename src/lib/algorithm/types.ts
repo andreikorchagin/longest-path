@@ -25,3 +25,14 @@ export const DEFAULT_PREFERENCES: RoutePreferences = {
   avoidBacktracking: true,
   stayOnRunningPaths: true,
 };
+
+export type ProgressStep =
+  | "discovering"
+  | "analyzing"
+  | "selecting"
+  | "routing"
+  | "done";
+
+export interface ProgressCallback {
+  (step: ProgressStep, detail?: string): void;
+}

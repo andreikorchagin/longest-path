@@ -13,6 +13,8 @@ describe("Zustand store", () => {
       discoveredFeatures: [],
       selectedWaypoints: [],
       isGenerating: false,
+      progressStep: null,
+      progressDetail: null,
       error: null,
       mode: "point-to-point",
       targetDistanceKm: 5,

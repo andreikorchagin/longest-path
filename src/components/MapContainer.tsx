@@ -17,8 +17,8 @@ export default function MapContainer() {
   const setStartPoint = useStore((s) => s.setStartPoint);
   const setEndPoint = useStore((s) => s.setEndPoint);
   const setPlacingMarker = useStore((s) => s.setPlacingMarker);
-  const discoveredFeatures = useStore((s) => s.discoveredFeatures);
   const selectedWaypoints = useStore((s) => s.selectedWaypoints);
+  const mode = useStore((s) => s.mode);
 
   const handleClick = useCallback(
     (e: MapMouseEvent) => {
@@ -26,13 +26,17 @@ export default function MapContainer() {
 
       if (placingMarker === "start") {
         setStartPoint(lngLat);
-        setPlacingMarker("end");
+        if (mode === "point-to-point") {
+          setPlacingMarker("end");
+        } else {
+          setPlacingMarker(null);
+        }
       } else if (placingMarker === "end") {
         setEndPoint(lngLat);
         setPlacingMarker(null);
       }
     },
-    [placingMarker, setStartPoint, setEndPoint, setPlacingMarker]
+    [placingMarker, mode, setStartPoint, setEndPoint, setPlacingMarker]
   );
 
   return (
@@ -46,11 +50,8 @@ export default function MapContainer() {
       cursor={placingMarker ? "crosshair" : "grab"}
     >
       <RouteLayer />
-      {discoveredFeatures.length > 0 && (
-        <FeatureMarkers
-          waypoints={discoveredFeatures}
-          selected={new Set(selectedWaypoints.map((w) => w.id))}
-        />
+      {selectedWaypoints.length > 0 && (
+        <FeatureMarkers waypoints={selectedWaypoints} />
       )}
       <WaypointMarkers />
     </Map>
