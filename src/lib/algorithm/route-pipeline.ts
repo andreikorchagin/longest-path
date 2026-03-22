@@ -1,80 +1,34 @@
 import type { LngLat } from "@/types/geo";
 import type { Route } from "@/types/route";
-import type { ScoredWaypoint, ProgressCallback } from "./types";
+import type { StrategicWaypoint, ProgressCallback } from "./types";
 import { createCorridor } from "./corridor";
-import { buildOverpassQuery, parsePathGeometries } from "./overpass-query";
-import { sampleWaypointsFromPaths } from "./path-sampler";
+import {
+  buildOverpassQuery,
+  parsePathGeometries,
+  mergeConnectedWays,
+} from "./overpass-query";
+import { findStrategicWaypoints } from "./path-sampler";
 import { orderWaypointsLinear } from "./waypoint-ordering";
 import { queryOverpass } from "@/lib/api/overpass";
 import { getDirections } from "@/lib/api/mapbox-directions";
+import { MAX_DETOUR_RATIO } from "@/lib/constants";
 
 export interface PipelineResult {
   route: Route;
-  discoveredFeatures: ScoredWaypoint[];
-  selectedWaypoints: ScoredWaypoint[];
+  strategicWaypoints: StrategicWaypoint[];
+  usedBareRoute: boolean;
 }
 
 /**
- * Generate a point-to-point route that follows running infrastructure.
- *
- * New approach: "path-following" instead of "point-hopping"
- * 1. Query Overpass for path geometries (footways, waterfront, piers)
- * 2. Sample waypoints along these paths (not isolated centroids)
- * 3. Score by water proximity and path quality
- * 4. Order along travel direction
- * 5. Route through Mapbox — waypoints follow actual paths, so no zigzag
+ * Build a Route object from Mapbox response.
  */
-export async function generatePointToPointRoute(
-  start: LngLat,
-  end: LngLat,
-  paceMinPerMile: number = 9,
-  onProgress?: ProgressCallback
-): Promise<PipelineResult> {
-  // Step 1: Create corridor
-  onProgress?.("discovering", "Searching for running paths...");
-  const bbox = createCorridor(start, end);
-
-  // Step 2: Query Overpass for path geometries
-  const query = buildOverpassQuery(bbox);
-  const overpassData = await queryOverpass(query);
-
-  // Step 3: Parse into typed path geometries
-  onProgress?.("analyzing", "Analyzing path network...");
-  const pathGeometries = parsePathGeometries(overpassData.elements);
-
-  // Step 4: Sample waypoints along paths, scored by quality
-  onProgress?.("selecting", "Selecting best route...");
-  const sampledWaypoints = sampleWaypointsFromPaths(
-    pathGeometries,
-    start,
-    end,
-    20 // Keep under 23 (Mapbox limit minus start/end)
-  );
-
-  // Step 5: Order along travel direction
-  const orderedWaypoints = orderWaypointsLinear(sampledWaypoints, start, end);
-
-  // Step 6: Route through Mapbox
-  onProgress?.("routing", "Calculating route...");
-  const coordinates: LngLat[] = [
-    start,
-    ...orderedWaypoints.map((wp) => wp.lngLat),
-    end,
-  ];
-
-  const data = await getDirections(coordinates);
-
-  if (!data.routes || data.routes.length === 0) {
-    throw new Error("No route found");
-  }
-
-  const mapboxRoute = data.routes[0];
+function buildRoute(
+  mapboxRoute: { geometry: GeoJSON.LineString; distance: number; duration: number },
+  paceMinPerMile: number
+): Route {
   const distanceKm = mapboxRoute.distance / 1000;
-
   const distanceMi = distanceKm * 0.621371;
-  const durationMin = distanceMi * paceMinPerMile;
-
-  const route: Route = {
+  return {
     geometry: {
       type: "Feature",
       properties: {},
@@ -83,15 +37,99 @@ export async function generatePointToPointRoute(
     stats: {
       distanceKm,
       distanceMi,
-      durationMin,
+      durationMin: distanceMi * paceMinPerMile,
     },
   };
+}
+
+/**
+ * Generate a point-to-point route using the "Strategic Nudge" approach.
+ *
+ * 1. BARE ROUTE: Get baseline from Mapbox with walkway_bias=1
+ * 2. DISCOVER: Query Overpass for major car-free paths
+ * 3. MERGE: Connect OSM way segments into continuous paths
+ * 4. QUALIFY + PLACE: Find strategic waypoints (one midpoint per path, max 3)
+ * 5. ROUTE: Get waypointed route from Mapbox
+ * 6. SAFETY CHECK: If waypointed route is too long, use bare route
+ */
+export async function generatePointToPointRoute(
+  start: LngLat,
+  end: LngLat,
+  paceMinPerMile: number = 9,
+  onProgress?: ProgressCallback
+): Promise<PipelineResult> {
+  // Step 1: Bare route (baseline)
+  onProgress?.("routing", "Getting baseline route...");
+  const bareData = await getDirections([start, end]);
+
+  if (!bareData.routes || bareData.routes.length === 0) {
+    throw new Error("No route found between these points");
+  }
+
+  const bareRoute = buildRoute(bareData.routes[0], paceMinPerMile);
+
+  // Step 2: Discover major paths
+  onProgress?.("discovering", "Searching for running paths...");
+  const bbox = createCorridor(start, end);
+  const query = buildOverpassQuery(bbox);
+  const overpassData = await queryOverpass(query);
+
+  // Step 3: Parse and merge
+  onProgress?.("analyzing", "Merging path segments...");
+  const rawPaths = parsePathGeometries(overpassData.elements);
+  const mergedPaths = mergeConnectedWays(rawPaths);
+
+  // Step 4: Find strategic waypoints
+  onProgress?.("selecting", "Finding best car-free paths...");
+  const waypoints = findStrategicWaypoints(mergedPaths, start, end);
+
+  // If no qualifying paths, return bare route
+  if (waypoints.length === 0) {
+    onProgress?.("done");
+    return { route: bareRoute, strategicWaypoints: [], usedBareRoute: true };
+  }
+
+  // Step 5: Route with strategic waypoints
+  onProgress?.("routing", "Calculating improved route...");
+  const ordered = orderWaypointsLinear(
+    waypoints.map((w) => ({
+      ...w,
+      featureType: "footway",
+      isDeadEnd: false,
+      name: w.pathName,
+    })),
+    start,
+    end
+  );
+
+  const coordinates: LngLat[] = [
+    start,
+    ...ordered.map((wp) => wp.lngLat),
+    end,
+  ];
+
+  const nudgedData = await getDirections(coordinates);
+
+  if (!nudgedData.routes || nudgedData.routes.length === 0) {
+    // Waypointed route failed — return bare route
+    onProgress?.("done");
+    return { route: bareRoute, strategicWaypoints: [], usedBareRoute: true };
+  }
+
+  const nudgedRoute = buildRoute(nudgedData.routes[0], paceMinPerMile);
+
+  // Step 6: Safety check — is the detour worth it?
+  const ratio = nudgedRoute.stats.distanceKm / bareRoute.stats.distanceKm;
+  if (ratio > MAX_DETOUR_RATIO) {
+    // Detour too large — return bare route
+    onProgress?.("done");
+    return { route: bareRoute, strategicWaypoints: [], usedBareRoute: true };
+  }
 
   onProgress?.("done");
-
   return {
-    route,
-    discoveredFeatures: sampledWaypoints, // All sampled waypoints
-    selectedWaypoints: orderedWaypoints,   // The ones used in routing
+    route: nudgedRoute,
+    strategicWaypoints: waypoints,
+    usedBareRoute: false,
   };
 }

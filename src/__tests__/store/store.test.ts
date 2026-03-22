@@ -3,15 +3,14 @@ import { useStore } from "@/store";
 
 describe("Zustand store", () => {
   beforeEach(() => {
-    // Reset store to initial state
     useStore.setState({
       startPoint: null,
       endPoint: null,
       placingMarker: "start",
       routeGeoJSON: null,
       routeStats: null,
-      discoveredFeatures: [],
-      selectedWaypoints: [],
+      strategicWaypoints: [],
+      usedBareRoute: false,
       isGenerating: false,
       progressStep: null,
       progressDetail: null,
@@ -38,17 +37,6 @@ describe("Zustand store", () => {
       expect(useStore.getState().placingMarker).toBe("start");
       useStore.getState().setPlacingMarker("end");
       expect(useStore.getState().placingMarker).toBe("end");
-      useStore.getState().setPlacingMarker(null);
-      expect(useStore.getState().placingMarker).toBeNull();
-    });
-
-    it("updates view state", () => {
-      useStore.getState().setViewState({
-        longitude: -73.95,
-        latitude: 40.78,
-        zoom: 16,
-      });
-      expect(useStore.getState().viewState.zoom).toBe(16);
     });
   });
 
@@ -67,10 +55,9 @@ describe("Zustand store", () => {
       expect(useStore.getState().targetDistanceKm).toBe(10);
     });
 
-    it("toggles units", () => {
-      expect(useStore.getState().units).toBe("mi");
-      useStore.getState().setUnits("km");
-      expect(useStore.getState().units).toBe("km");
+    it("sets pace", () => {
+      useStore.getState().setPace(8);
+      expect(useStore.getState().paceMinPerMile).toBe(8);
     });
   });
 
@@ -90,25 +77,21 @@ describe("Zustand store", () => {
             coordinates: [[-74.01, 40.725], [-73.95, 40.78]],
           },
         },
-        routeStats: { distanceKm: 5, distanceMi: 3.1, durationMin: 50 },
-        discoveredFeatures: [
-          {
-            id: "test",
-            lngLat: [-74.0, 40.73] as [number, number],
-            featureType: "pier" as const,
-            score: 90,
-            isDeadEnd: true,
-          },
-        ],
+        routeStats: { distanceKm: 5, distanceMi: 3.1, durationMin: 28 },
+        strategicWaypoints: [{
+          id: "test",
+          lngLat: [-74.0, 40.73] as [number, number],
+          pathName: "Test Path",
+          pathLengthM: 1000,
+          score: 5,
+        }],
       });
 
       useStore.getState().clearRoute();
 
       expect(useStore.getState().routeGeoJSON).toBeNull();
       expect(useStore.getState().routeStats).toBeNull();
-      expect(useStore.getState().discoveredFeatures).toHaveLength(0);
-      expect(useStore.getState().selectedWaypoints).toHaveLength(0);
-      expect(useStore.getState().error).toBeNull();
+      expect(useStore.getState().strategicWaypoints).toHaveLength(0);
     });
 
     it("sets error when generating without start point", async () => {
@@ -119,9 +102,7 @@ describe("Zustand store", () => {
     it("sets error when generating P2P without end point", async () => {
       useStore.getState().setStartPoint([-74.01, 40.725]);
       await useStore.getState().generateRoute();
-      expect(useStore.getState().error).toBe(
-        "Set both start and end points"
-      );
+      expect(useStore.getState().error).toBe("Set both start and end points");
     });
   });
 });

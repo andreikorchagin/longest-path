@@ -1,6 +1,6 @@
 import type { StateCreator } from "zustand";
 import type { RouteStats } from "@/types/route";
-import type { ScoredWaypoint, ProgressStep } from "@/lib/algorithm/types";
+import type { StrategicWaypoint, ProgressStep } from "@/lib/algorithm/types";
 import type { StoreState } from "./index";
 import { generatePointToPointRoute } from "@/lib/algorithm/route-pipeline";
 import { generateLoopRoute } from "@/lib/algorithm/loop-generator";
@@ -8,8 +8,8 @@ import { generateLoopRoute } from "@/lib/algorithm/loop-generator";
 export interface RouteSlice {
   routeGeoJSON: GeoJSON.Feature<GeoJSON.LineString> | null;
   routeStats: RouteStats | null;
-  discoveredFeatures: ScoredWaypoint[];
-  selectedWaypoints: ScoredWaypoint[];
+  strategicWaypoints: StrategicWaypoint[];
+  usedBareRoute: boolean;
   isGenerating: boolean;
   progressStep: ProgressStep | null;
   progressDetail: string | null;
@@ -25,8 +25,8 @@ export const createRouteSlice: StateCreator<StoreState, [], [], RouteSlice> = (
 ) => ({
   routeGeoJSON: null,
   routeStats: null,
-  discoveredFeatures: [],
-  selectedWaypoints: [],
+  strategicWaypoints: [],
+  usedBareRoute: false,
   isGenerating: false,
   progressStep: null,
   progressDetail: null,
@@ -60,8 +60,8 @@ export const createRouteSlice: StateCreator<StoreState, [], [], RouteSlice> = (
       set({
         routeGeoJSON: result.route.geometry,
         routeStats: result.route.stats,
-        discoveredFeatures: result.discoveredFeatures,
-        selectedWaypoints: result.selectedWaypoints,
+        strategicWaypoints: result.strategicWaypoints,
+        usedBareRoute: result.usedBareRoute,
         isGenerating: false,
         progressStep: null,
         progressDetail: null,
@@ -80,8 +80,8 @@ export const createRouteSlice: StateCreator<StoreState, [], [], RouteSlice> = (
     set({
       routeGeoJSON: null,
       routeStats: null,
-      discoveredFeatures: [],
-      selectedWaypoints: [],
+      strategicWaypoints: [],
+      usedBareRoute: false,
       error: null,
       progressStep: null,
       progressDetail: null,

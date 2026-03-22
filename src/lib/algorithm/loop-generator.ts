@@ -1,14 +1,17 @@
 import type { LngLat } from "@/types/geo";
 import type { Route } from "@/types/route";
-import type { ScoredWaypoint, ProgressCallback } from "./types";
+import type { StrategicWaypoint, ProgressCallback } from "./types";
 import type { PipelineResult } from "./route-pipeline";
 import { radiusBBox } from "@/lib/geo/bbox";
-import { buildOverpassQuery, parsePathGeometries } from "./overpass-query";
-import { sampleWaypointsFromPaths } from "./path-sampler";
-import { orderWaypointsRadial } from "./waypoint-ordering";
+import {
+  buildOverpassQuery,
+  parsePathGeometries,
+  mergeConnectedWays,
+} from "./overpass-query";
+import { findStrategicWaypointsForLoop } from "./path-sampler";
 import { queryOverpass } from "@/lib/api/overpass";
 import { getDirections } from "@/lib/api/mapbox-directions";
-import { haversineDistance } from "@/lib/geo/distance";
+import { haversineDistance, bearing, movePoint } from "@/lib/geo/distance";
 import {
   LOOP_RADIUS_FACTOR,
   LOOP_DISTANCE_TOLERANCE,
@@ -16,9 +19,12 @@ import {
 } from "@/lib/constants";
 
 /**
- * Generate a loop route using path-following approach.
- * Samples waypoints from actual running path geometries,
- * orders them radially, and iterates to match target distance.
+ * Generate a loop route using the Strategic Nudge approach.
+ *
+ * 1. Find the best nearby car-free path
+ * 2. Place one waypoint on it + a turnaround point on the far side
+ * 3. Route: [start, waypoint, turnaround, start]
+ * 4. Iterate to match target distance
  */
 export async function generateLoopRoute(
   start: LngLat,
@@ -45,58 +51,40 @@ export async function generateLoopRoute(
     const query = buildOverpassQuery(bbox);
     const overpassData = await queryOverpass(query);
 
-    onProgress?.("analyzing", "Analyzing path network...");
-    const pathGeometries = parsePathGeometries(overpassData.elements);
+    onProgress?.("analyzing", "Merging path segments...");
+    const rawPaths = parsePathGeometries(overpassData.elements);
+    const mergedPaths = mergeConnectedWays(rawPaths);
 
-    // For loop mode, we use start as both start and a far point
-    // Create a virtual "end" point to the east to seed the sampling
-    const virtualEnd: LngLat = [
-      start[0] + radiusM / 111320 / Math.cos((start[1] * Math.PI) / 180),
-      start[1],
-    ];
+    onProgress?.("selecting", "Finding best loop path...");
+    const waypoints = findStrategicWaypointsForLoop(mergedPaths, start, radiusM);
 
-    onProgress?.("selecting", "Selecting loop waypoints...");
-    const sampledWaypoints = sampleWaypointsFromPaths(
-      pathGeometries,
-      start,
-      virtualEnd,
-      16
-    );
+    // Build loop coordinates
+    let coordinates: LngLat[];
 
-    if (sampledWaypoints.length === 0) {
-      radiusM *= 1.5;
-      continue;
+    if (waypoints.length > 0) {
+      const wp = waypoints[0];
+      // Turnaround: opposite side of loop from waypoint
+      const wpBearing = bearing(start, wp.lngLat);
+      const turnaround = movePoint(start, radiusM * 0.6, (wpBearing + 180) % 360);
+
+      coordinates = [start, wp.lngLat, turnaround, start];
+    } else {
+      // No qualifying paths — simple out-and-back
+      const turnaround = movePoint(start, radiusM, 0); // Go north
+      coordinates = [start, turnaround, start];
     }
-
-    // Filter out waypoints too close to start
-    const filtered = sampledWaypoints.filter(
-      (wp) => haversineDistance(wp.lngLat, start) > 200
-    );
-
-    if (filtered.length === 0) {
-      radiusM *= 1.5;
-      continue;
-    }
-
-    // Order radially for loop
-    const orderedWaypoints = orderWaypointsRadial(filtered, start);
 
     onProgress?.("routing", "Calculating loop route...");
-    const coordinates: LngLat[] = [
-      start,
-      ...orderedWaypoints.map((wp) => wp.lngLat),
-      start,
-    ];
-
     const data = await getDirections(coordinates);
 
     if (!data.routes || data.routes.length === 0) {
-      throw new Error("No route found");
+      radiusM *= 1.2;
+      continue;
     }
 
     const mapboxRoute = data.routes[0];
-    const actualDistanceKm = mapboxRoute.distance / 1000;
-    const actualDistanceMi = actualDistanceKm * 0.621371;
+    const distanceKm = mapboxRoute.distance / 1000;
+    const distanceMi = distanceKm * 0.621371;
 
     const route: Route = {
       geometry: {
@@ -105,20 +93,20 @@ export async function generateLoopRoute(
         geometry: mapboxRoute.geometry,
       },
       stats: {
-        distanceKm: actualDistanceKm,
-        distanceMi: actualDistanceMi,
-        durationMin: actualDistanceMi * paceMinPerMile,
+        distanceKm,
+        distanceMi,
+        durationMin: distanceMi * paceMinPerMile,
       },
     };
 
     bestResult = {
       route,
-      discoveredFeatures: sampledWaypoints,
-      selectedWaypoints: orderedWaypoints,
+      strategicWaypoints: waypoints,
+      usedBareRoute: waypoints.length === 0,
     };
 
-    const ratio = actualDistanceKm / targetDistanceKm;
-
+    // Check distance
+    const ratio = distanceKm / targetDistanceKm;
     if (
       ratio >= 1 - LOOP_DISTANCE_TOLERANCE &&
       ratio <= 1 + LOOP_DISTANCE_TOLERANCE
@@ -126,17 +114,11 @@ export async function generateLoopRoute(
       break;
     }
 
-    if (ratio < 1 - LOOP_DISTANCE_TOLERANCE) {
-      radiusM *= 1.2;
-    } else {
-      radiusM *= 0.85;
-    }
+    radiusM *= ratio < 1 - LOOP_DISTANCE_TOLERANCE ? 1.2 : 0.85;
   }
 
   if (!bestResult) {
-    throw new Error(
-      "Could not generate a loop route. Try a different area or distance."
-    );
+    throw new Error("Could not generate a loop route. Try a different area or distance.");
   }
 
   onProgress?.("done");

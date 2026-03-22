@@ -1,16 +1,18 @@
 import type { LngLat } from "@/types/geo";
-import type { ScoredWaypoint } from "./types";
 import { projectOntoLine, bearing } from "@/lib/geo/distance";
+
+interface HasLngLat {
+  lngLat: LngLat;
+}
 
 /**
  * Order waypoints along the start→end direction for point-to-point mode.
- * Projects each waypoint onto the start-end vector and sorts by projection.
  */
-export function orderWaypointsLinear(
-  waypoints: ScoredWaypoint[],
+export function orderWaypointsLinear<T extends HasLngLat>(
+  waypoints: T[],
   start: LngLat,
   end: LngLat
-): ScoredWaypoint[] {
+): T[] {
   return [...waypoints].sort((a, b) => {
     const projA = projectOntoLine(a.lngLat, start, end);
     const projB = projectOntoLine(b.lngLat, start, end);
@@ -21,10 +23,10 @@ export function orderWaypointsLinear(
 /**
  * Order waypoints clockwise by bearing from center for loop mode.
  */
-export function orderWaypointsRadial(
-  waypoints: ScoredWaypoint[],
+export function orderWaypointsRadial<T extends HasLngLat>(
+  waypoints: T[],
   center: LngLat
-): ScoredWaypoint[] {
+): T[] {
   return [...waypoints].sort((a, b) => {
     const bearingA = bearing(center, a.lngLat);
     const bearingB = bearing(center, b.lngLat);
