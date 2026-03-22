@@ -1,11 +1,15 @@
 import type { StateCreator } from "zustand";
-import type { Route, RouteStats } from "@/types/route";
+import type { RouteStats } from "@/types/route";
+import type { ScoredWaypoint } from "@/lib/algorithm/types";
 import type { StoreState } from "./index";
+import { generatePointToPointRoute } from "@/lib/algorithm/route-pipeline";
 import { getDirections } from "@/lib/api/mapbox-directions";
 
 export interface RouteSlice {
   routeGeoJSON: GeoJSON.Feature<GeoJSON.LineString> | null;
   routeStats: RouteStats | null;
+  discoveredFeatures: ScoredWaypoint[];
+  selectedWaypoints: ScoredWaypoint[];
   isGenerating: boolean;
   error: string | null;
 
@@ -19,6 +23,8 @@ export const createRouteSlice: StateCreator<StoreState, [], [], RouteSlice> = (
 ) => ({
   routeGeoJSON: null,
   routeStats: null,
+  discoveredFeatures: [],
+  selectedWaypoints: [],
   isGenerating: false,
   error: null,
 
@@ -33,29 +39,15 @@ export const createRouteSlice: StateCreator<StoreState, [], [], RouteSlice> = (
     set({ isGenerating: true, error: null });
 
     try {
-      const data = await getDirections([startPoint, endPoint]);
+      const result = await generatePointToPointRoute(startPoint, endPoint);
 
-      if (!data.routes || data.routes.length === 0) {
-        set({ error: "No route found", isGenerating: false });
-        return;
-      }
-
-      const route = data.routes[0];
-      const distanceKm = route.distance / 1000;
-
-      const routeGeoJSON: GeoJSON.Feature<GeoJSON.LineString> = {
-        type: "Feature",
-        properties: {},
-        geometry: route.geometry,
-      };
-
-      const routeStats: RouteStats = {
-        distanceKm,
-        distanceMi: distanceKm * 0.621371,
-        durationMin: route.duration / 60,
-      };
-
-      set({ routeGeoJSON, routeStats, isGenerating: false });
+      set({
+        routeGeoJSON: result.route.geometry,
+        routeStats: result.route.stats,
+        discoveredFeatures: result.discoveredFeatures,
+        selectedWaypoints: result.selectedWaypoints,
+        isGenerating: false,
+      });
     } catch (err) {
       set({
         error: err instanceof Error ? err.message : "Route generation failed",
@@ -65,5 +57,11 @@ export const createRouteSlice: StateCreator<StoreState, [], [], RouteSlice> = (
   },
 
   clearRoute: () =>
-    set({ routeGeoJSON: null, routeStats: null, error: null }),
+    set({
+      routeGeoJSON: null,
+      routeStats: null,
+      discoveredFeatures: [],
+      selectedWaypoints: [],
+      error: null,
+    }),
 });

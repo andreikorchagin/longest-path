@@ -6,6 +6,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import { useStore } from "@/store";
 import WaypointMarkers from "./WaypointMarkers";
 import RouteLayer from "./RouteLayer";
+import FeatureMarkers from "./FeatureMarkers";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN!;
 
@@ -16,6 +17,8 @@ export default function MapContainer() {
   const setStartPoint = useStore((s) => s.setStartPoint);
   const setEndPoint = useStore((s) => s.setEndPoint);
   const setPlacingMarker = useStore((s) => s.setPlacingMarker);
+  const discoveredFeatures = useStore((s) => s.discoveredFeatures);
+  const selectedWaypoints = useStore((s) => s.selectedWaypoints);
 
   const handleClick = useCallback(
     (e: MapMouseEvent) => {
@@ -43,6 +46,12 @@ export default function MapContainer() {
       cursor={placingMarker ? "crosshair" : "grab"}
     >
       <RouteLayer />
+      {discoveredFeatures.length > 0 && (
+        <FeatureMarkers
+          waypoints={discoveredFeatures}
+          selected={new Set(selectedWaypoints.map((w) => w.id))}
+        />
+      )}
       <WaypointMarkers />
     </Map>
   );
